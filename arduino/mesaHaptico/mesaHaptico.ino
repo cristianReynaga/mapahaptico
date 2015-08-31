@@ -9,9 +9,9 @@ void setup() {
   pinMode(24, INPUT);//ONLY 4 TEST!
   logs("Starting up...", true);
   Thread* myThread = new Thread();
-  Thread hisThread = Thread();
   myThread->onRun(generalClock);
   myThread->setInterval(eventIt);
+  controll.add(myThread);
   String m = "GeneralClock done!... at: " + String(eventIt) + "ms";
   logs(m, true);
   prepareVias();
@@ -20,25 +20,43 @@ void setup() {
 void generalClock() {
   for(int i = 0; i < maxVias; i++){
     if(viasTime[i] > 0){
-       viasTime[i] -=eventIt; 
-       switch(viasAct[i]){
-       case lightOn   :{viasValues[i] < 255 ? viasValues[i] += 20 :viasAct[i] = lightHold ; break;}
-       case lightHold :{if((viasTime[i]-eventIt*13) < 0) {viasAct[i] = lightOff;} break;}
-       case lightOff  :{viasValues[i] > 0 ? viasValues[i] -= 20 :viasAct[i] = lightIdle; break;}
-       }
-   }
-  }  
+      viasTime[i] -=eventIt; 
+    }
+     switch(viasAct[i]){
+     case lightOn   :{viasValues[i] < 255 ? viasValues[i] += lsFadeMod :viasAct[i] = lightHold; logs("LON LS: "+String(i+1)); break;}
+     case lightHold :{viasValues[i] = 255; if((viasTime[i]-eventIt*12) <= 0) {viasAct[i] = lightOff;} logs("LHOLD LS: "+String(i+1)); break;}
+     case lightOff  :{viasValues[i] > 0 ? viasValues[i] -= lsFadeMod :viasAct[i] = lightIdle; logs("LOFF LS: "+String(i+1)); break;}
+    }
+   } 
 }
 
 void loop() {
   /* REMOVEME! */
-  if (havePublic() == true) {
-    test();
+  controll.run();
+  if (havePublic() == false) {
+    botonera();
+    for(int i = 0; i < maxVias; i++){
+      ledStripsControll(vias[i], viasValues[i]);}
   }
 
   /* FOO TEST */
 }
 
+void botonera()
+{
+  char r;
+  if (Serial.available() > 0 ){
+    r = Serial.read();
+  }
+  if(r == '1'){viasAct[0] = 1; viasTime[0]=defaultEventTime; Serial.println(">>CMD: LS 1");}
+  if(r == '2'){viasAct[1] = 1; viasTime[1]=defaultEventTime; Serial.println(">>CMD: LS 2");}
+  if(r == '3'){viasAct[2] = 1; viasTime[2]=defaultEventTime; Serial.println(">>CMD: LS 3");}
+  if(r == '4'){viasAct[3] = 1; viasTime[3]=defaultEventTime; Serial.println(">>CMD: LS 4");}
+  if(r == '5'){viasAct[4] = 1; viasTime[4]=defaultEventTime; Serial.println(">>CMD: LS 5");}
+  if(r == '6'){viasAct[5] = 1; viasTime[5]=defaultEventTime; Serial.println(">>CMD: LS 6");}
+  if(r == '7'){viasAct[6] = 1; viasTime[6]=defaultEventTime; Serial.println(">>CMD: LS 7");}
+  
+}
 void test() {
   if (Serial.available() > 0) {
     char s = Serial.read();
@@ -89,8 +107,8 @@ void fade(){
 
 }
 
-void ledStripsControll(int via, int action ) {
-  action == 0 ? analogWrite(via, 255) : analogWrite(via, 0);
+void ledStripsControll(int via, int value ) {
+  analogWrite(via, value);
   //analogWrite(vias[0], 255);
 }
 
@@ -105,6 +123,7 @@ void prepareVias() {
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
   pinMode(7, OUTPUT);
+  pinMode(8, OUTPUT);
   logs("All vias are ready!", true);
-  ledStripsControll(vias[1], 1);
+
 }
