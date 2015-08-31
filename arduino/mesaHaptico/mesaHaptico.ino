@@ -22,11 +22,12 @@ void generalClock() {
     if(viasTime[i] > 0){
       viasTime[i] -=eventIt; 
     }
-     switch(viasAct[i]){
-     case lightOn   :{viasValues[i] < 255 ? viasValues[i] += lsFadeMod :viasAct[i] = lightHold; logs("LON LS: "+String(i+1)); break;}
-     case lightHold :{viasValues[i] = 255; if((viasTime[i]-eventIt*12) <= 0) {viasAct[i] = lightOff;} logs("LHOLD LS: "+String(i+1)); break;}
-     case lightOff  :{viasValues[i] > 0 ? viasValues[i] -= lsFadeMod :viasAct[i] = lightIdle; logs("LOFF LS: "+String(i+1)); break;}
-    }
+      if(viasAct[i] == lightOn){viasValues[i] < 255 ? viasValues[i] += lsFadeMod :viasAct[i] = lightHold; logs("LON LS: "+String(i+1));}
+      else if(viasAct[i] == lightHold){viasValues[i] = 255; if((viasTime[i]-eventIt*12) <= 0) {viasAct[i] = lightOff;} logs("LHOLD LS: "+String(i+1));}
+      else if(viasAct[i]==lightOff){if(viasValues[i] > 0){viasValues[i] -= lsFadeMod}
+                                      else{viasAct[i] = lightIdle;
+                                      viasValue[i]=0} 
+                                      logs("LOFF LS: "+String(i+1));}
    } 
 }
 
@@ -36,7 +37,8 @@ void loop() {
   if (havePublic() == false) {
     botonera();
     for(int i = 0; i < maxVias; i++){
-      ledStripsControll(vias[i], viasValues[i]);}
+      ledStripsControll(vias[i], viasValues[i]); 
+    }
   }
 
   /* FOO TEST */
@@ -58,23 +60,7 @@ void botonera()
   
 }
 void test() {
-  if (Serial.available() > 0) {
-    char s = Serial.read();
-    if (s == '1') {
-      for (int i = 0; i < maxVias; i++) {
-        ledStripsControll(vias[i], 0);
-        logs("PING HIGH");
-      }
-      Serial.flush();
-    }
-    if (s == '2') {
-      for (int i = 0; i < maxVias; i++) {
-        ledStripsControll(vias[i], 1);
-        logs("PING LOW");
-      }
-      Serial.flush();
-    }
-  }
+
 }
 
 
@@ -103,9 +89,6 @@ void logs(String msg, boolean dl) {
   Serial.println();
 }
 
-void fade(){
-
-}
 
 void ledStripsControll(int via, int value ) {
   analogWrite(via, value);
@@ -114,16 +97,13 @@ void ledStripsControll(int via, int value ) {
 
 void prepareVias() {
   logs("Setting up vias LS");
-  /*  for(int i = 0; i < maxVias ; i++){
-      pinMode(vias[i],OUTPUT);
-    }*/
-  pinMode(2, OUTPUT);
-  pinMode(3, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(6, OUTPUT);
-  pinMode(7, OUTPUT);
-  pinMode(8, OUTPUT);
+    pinMode(2, OUTPUT);
+    pinMode(3, OUTPUT);
+    pinMode(4, OUTPUT);
+    pinMode(5, OUTPUT);
+    pinMode(6, OUTPUT);
+    pinMode(7, OUTPUT);
+    pinMode(8, OUTPUT);
   logs("All vias are ready!", true);
 
 }
