@@ -1,64 +1,68 @@
 #include "Arduino.h"
 #include <Thread.h>
+#include <Wtv020sd16p.h>
 #include <ThreadController.h>
+#include <Keypad.h>
 #include "config.h"
+#include "interaction.h"
 
 
 
 void setup() {
-  pinMode(24, INPUT);//ONLY 4 TEST!
+  logs("-----------| Mesa haptica |-----------");
   logs("Starting up...", true);
-  Thread* myThread = new Thread();
-  myThread->onRun(generalClock);
-  myThread->setInterval(eventIt);
-  controll.add(myThread);
-  String m = "GeneralClock done!... at: " + String(eventIt) + "ms";
-  logs(m, true);
-  prepareVias();
+  prepareClockThreads();//CREATE AND START CLOCK THREAD
+  prepareVias();//INIT LED STRIP VIAS
+  wtv020sd16p.reset();//START AUDIO DEVICE
 }
 
 void generalClock() {
   for(int i = 0; i < maxVias; i++){
     if(viasTime[i] > 0){
-      viasTime[i] -=eventIt; 
+      viasTime[i] =  viasTime[i]-eventIt ; 
     }
-      if(viasAct[i] == lightOn){viasValues[i] < 255 ? viasValues[i] += lsFadeMod :viasAct[i] = lightHold; logs("LON LS: "+String(i+1));}
-      else if(viasAct[i] == lightHold){viasValues[i] = 255; if((viasTime[i]-eventIt*12) <= 0) {viasAct[i] = lightOff;} logs("LHOLD LS: "+String(i+1));}
-      else if(viasAct[i]==lightOff){if(viasValues[i] > 0){viasValues[i] -= lsFadeMod}
-                                      else{viasAct[i] = lightIdle;
-                                      viasValue[i]=0} 
-                                      logs("LOFF LS: "+String(i+1));}
    } 
+  if(soundRunTime > 0 & playing == true){
+    soundRunTime -= eventIt;
+  }else{
+    playing = false;
+    wtv020sd16p.stopVoice();
+  }
 }
 
 void loop() {
   /* REMOVEME! */
   controll.run();
-  if (havePublic() == false) {
+  if (havePublic() == true) {
     botonera();
     for(int i = 0; i < maxVias; i++){
-      ledStripsControll(vias[i], viasValues[i]); 
+      if(viasAct[i] == lightOn){if(viasValues[i] < 255) {viasValues[i] += lsFadeMod;} else{viasAct[i] = lightHold;viasValues[i] = 255;} logs("+");ledStripsControll(vias[i], viasValues[i]); 
+        for(int j = 0 ; j < maxVias; j++){
+          if(j != i){
+            if(viasAct[j]==lightOn || viasAct[j] == lightHold){
+              viasAct[j]  = lightOff;
+
+            }
+           }
+        }
+      }
+      else if(viasAct[i] == lightHold){ if((viasTime[i]-eventIt*12) <= 0) {viasAct[i] = lightOff;} logs("*");}
+      else if(viasAct[i]==lightOff){if(viasValues[i] > 0){viasValues[i] -= lsFadeMod;}
+                                      else{viasAct[i] = lightIdle;
+                                      viasTime[i]=0;
+                                      viasValues[i]=0;} 
+                                      logs("-");
+                                      ledStripsControll(vias[i], viasValues[i]);  
+                                    }
+      else{ledStripsControll(vias[i], 0); }
+       
     }
   }
 
   /* FOO TEST */
 }
 
-void botonera()
-{
-  char r;
-  if (Serial.available() > 0 ){
-    r = Serial.read();
-  }
-  if(r == '1'){viasAct[0] = 1; viasTime[0]=defaultEventTime; Serial.println(">>CMD: LS 1");}
-  if(r == '2'){viasAct[1] = 1; viasTime[1]=defaultEventTime; Serial.println(">>CMD: LS 2");}
-  if(r == '3'){viasAct[2] = 1; viasTime[2]=defaultEventTime; Serial.println(">>CMD: LS 3");}
-  if(r == '4'){viasAct[3] = 1; viasTime[3]=defaultEventTime; Serial.println(">>CMD: LS 4");}
-  if(r == '5'){viasAct[4] = 1; viasTime[4]=defaultEventTime; Serial.println(">>CMD: LS 5");}
-  if(r == '6'){viasAct[5] = 1; viasTime[5]=defaultEventTime; Serial.println(">>CMD: LS 6");}
-  if(r == '7'){viasAct[6] = 1; viasTime[6]=defaultEventTime; Serial.println(">>CMD: LS 7");}
-  
-}
+
 void test() {
 
 }
@@ -68,31 +72,24 @@ void test() {
 void logs(String msg) {
   logs(msg, false);
 }
-boolean havePublic() {
-  //redef!
-  boolean r = false;
-  int s = digitalRead(24);
-  if (s == HIGH) {
-    r = true;
-  }
-  return r;
-}
+
 
 void logs(String msg, boolean dl) {
-  if (serialReady == false ) {
-    Serial.begin(9600);
-    serialReady = !serialReady;
+  if(logEnable == true){
+    if (serialReady == false ) {
+      Serial.begin(9600);
+      serialReady = !serialReady;
+    }
+    Serial.print(">> \"");
+    Serial.print(msg);
+    dl == true ? Serial.print("\"\n") : Serial.print("\"");
+    Serial.println();
   }
-  Serial.print(">> \"");
-  Serial.print(msg);
-  dl == true ? Serial.print("\"\n") : Serial.print("\"");
-  Serial.println();
 }
 
 
 void ledStripsControll(int via, int value ) {
   analogWrite(via, value);
-  //analogWrite(vias[0], 255);
 }
 
 void prepareVias() {
@@ -103,7 +100,14 @@ void prepareVias() {
     pinMode(5, OUTPUT);
     pinMode(6, OUTPUT);
     pinMode(7, OUTPUT);
-    pinMode(8, OUTPUT);
   logs("All vias are ready!", true);
 
+}
+
+void prepareClockThreads(){
+  Thread* myThread = new Thread();
+  myThread->onRun(generalClock);
+  myThread->setInterval(eventIt);
+  controll.add(myThread);
+  logs("GeneralClock done!... at: " + String(eventIt) + "ms", true);
 }
